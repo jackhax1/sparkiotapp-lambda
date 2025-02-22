@@ -3,6 +3,8 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 
+#first deploy
+
 endpoint = "http://publicinfobanjir.water.gov.my/wp-content/themes/enlighten/data/latestreadingstrendabc.json"
 
 def lambda_handler(event, context):
