@@ -4,20 +4,33 @@ on:
       - main
 
 jobs:
-  deploy:
+  setup:
     name: Deploy to AWS Lambda
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          get-malaysia-rainfall:
+            - 'get-malaysia-rainfall/**'
+    outputs:
+      get-malaysia-rainfall: ${{ steps.filter.outputs.get-malaysia-rainfall }}
 
+
+  deploy-get-malaysia-rainfall:
+    needs: setup
+    if: ${{ needs.setup.outputs.get-malaysia-rainfall == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
     - uses: actions/setup-python@v5
       with:
         python-version: '3.13' 
-    - run: |
+      run: |
         cd get-malaysia-rainfall && pip install --platform manylinux2014_aarch64 --target=. --implementation cp --python-version 3.13 --only-binary=:all: --upgrade -r requirements.txt && zip -r deployment.zip .
-
+ 
     - name: default deploy
       uses: appleboy/lambda-action@v0.2.0
       with:
