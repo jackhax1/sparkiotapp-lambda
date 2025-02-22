@@ -15,8 +15,11 @@ jobs:
         filters: |
           get-malaysia-rainfall:
             - 'get-malaysia-rainfall/**'
+          get-malaysia-river-level:
+            - 'get-malaysia-river-level/**'
     outputs:
       get-malaysia-rainfall: ${{ steps.filter.outputs.get-malaysia-rainfall }}
+      get-malaysia-river-level: ${{ steps.filter.outputs.get-malaysia-river-level }}
 
 
   deploy-get-malaysia-rainfall:
@@ -39,3 +42,24 @@ jobs:
         aws_region: ${{ secrets.AWS_REGION }}
         function_name: get-malaysia-rainfall
         zip_file: get-malaysia-rainfall/deployment.zip
+
+  deploy-get-malaysia-river-level:
+    needs: setup
+    if: ${{ needs.setup.outputs.get-malaysia-river-level == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13' 
+    - run: |
+        cd get-malaysia-river-level && pip install --platform manylinux2014_aarch64 --target=. --implementation cp --python-version 3.13 --only-binary=:all: --upgrade -r requirements.txt && zip -r deployment.zip .
+ 
+    - name: default deploy
+      uses: appleboy/lambda-action@v0.2.0
+      with:
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ secrets.AWS_REGION }}
+        function_name: get-malaysia-river-level
+        zip_file: get-malaysia-river-level/deployment.zip
