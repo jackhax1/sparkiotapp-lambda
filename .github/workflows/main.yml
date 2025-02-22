@@ -22,35 +22,36 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Filter Changed Lambda Functions
-        uses: dorny/paths-filter@v2.2.1
         id: filter
+        uses: dorny/paths-filter@v2.2.1
         with:
           filters: .github/filters.yml
 
       - name: Install Dependencies and Deploy Changed Functions
         run: |
-          for function in $(jq -r 'keys[]' <<< '${{ toJson(steps.filter.outputs) }}'); do
-            if [[ "${{ steps.filter.outputs[function] }}" == "true" ]]; then
-              echo "Deploying Lambda function: $function"
-              cd "$function"
+          echo '${{ toJson(steps.filter.outputs) }}' > filters.json
+          cat filters.json | jq -r 'to_entries[] | select(.value == "true") | .key' > changed_functions.txt
 
-              # Create a package directory for dependencies
-              mkdir -p package
+          while IFS= read -r function; do
+            echo "Deploying Lambda function: $function"
+            cd "$function"
 
-              # Install Python dependencies in 'package' directory
-              pip install --target package -r requirements.txt
+            # Create a package directory for dependencies
+            mkdir -p package
 
-              # Move function files into package directory
-              cp -r ./*.py package/
+            # Install Python dependencies in 'package' directory
+            pip install --target package -r requirements.txt
 
-              # Zip all contents
-              cd package
-              zip -r ../deployment.zip . 
-              cd ..
+            # Move function files into package directory
+            cp -r ./*.py package/
 
-              # Deploy to AWS Lambda
-              aws lambda update-function-code --function-name "$function" --zip-file fileb://deployment.zip
+            # Zip all contents
+            cd package
+            zip -r ../deployment.zip . 
+            cd ..
 
-              cd ..
-            fi
-          done
+            # Deploy to AWS Lambda
+            aws lambda update-function-code --function-name "$function" --zip-file fileb://deployment.zip
+
+            cd ..
+          done < changed_functions.txt
