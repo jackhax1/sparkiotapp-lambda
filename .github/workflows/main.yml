@@ -1,0 +1,56 @@
+name: Deploy AWS Lambda
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Filter Changed Lambda Functions
+        uses: dorny/paths-filter@v2.2.1
+        id: filter
+        with:
+          filters: .github/filters.yml
+
+      - name: Install Dependencies and Deploy Changed Functions
+        run: |
+          for function in $(jq -r 'keys[]' <<< '${{ toJson(steps.filter.outputs) }}'); do
+            if [[ "${{ steps.filter.outputs[function] }}" == "true" ]]; then
+              echo "Deploying Lambda function: $function"
+              cd "$function"
+
+              # Create a package directory for dependencies
+              mkdir -p package
+
+              # Install Python dependencies in 'package' directory
+              pip install --target package -r requirements.txt
+
+              # Move function files into package directory
+              cp -r ./*.py package/
+
+              # Zip all contents
+              cd package
+              zip -r ../deployment.zip . 
+              cd ..
+
+              # Deploy to AWS Lambda
+              aws lambda update-function-code --function-name "$function" --zip-file fileb://deployment.zip
+
+              cd ..
+            fi
+          done
